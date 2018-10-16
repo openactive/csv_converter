@@ -30,14 +30,18 @@ class jsonScraper:
     def convertLoop(self):
         tempDf = self.converter(self.sourceUrl)
         self.dfList.append(tempDf)
-        print(self.sourceUrl)
-        print(self.nextUrl)
+        # print(self.sourceUrl)
+        # print(self.nextUrl)
         if self.sourceUrl != self.nextUrl:
             self.sourceUrl = self.nextUrl
             try:
                 self.convertLoop()
             except TimeoutError:
                 print(self.sourceUrl)
+            except KeyboardInterrupt:
+                self.finalDf = pd.concat(self.dfList)
+                print('files collected')
+                self.finalDf.to_csv(str(self.filename), index=False)
         else:
             self.finalDf = pd.concat(self.dfList)
             print('all files collected')
@@ -59,6 +63,15 @@ class jsonScraper:
                 self.convertLoopSelect()
             except TimeoutError:
                 print(self.sourceUrl)
+            except KeyboardInterrupt:
+                self.finalDf = pd.concat(self.dfList)
+                print('files collected')
+                col_selection = []
+                for col in self.selected:
+                    col_selection.append(col[0])
+
+                selected_finalDf = self.finalDf[col_selection]
+                selected_finalDf.to_csv(str(self.filename), index=False)
         else:
             self.finalDf = pd.concat(self.dfList)
             print('all files collected')
@@ -76,11 +89,19 @@ class jsonScraper:
                 self.nextUrl = data['next']
                 return data['items']
         except (urllib.error.HTTPError):
+
             req = Request(extUrl, headers={'User-Agent': 'Mozilla/5.0'})
-            url = urllib.request.urlopen(req)
-            data = ujson.loads(url.read().decode())
-            self.nextUrl = data['next']
-            return data['items']
+            try:
+                url = urllib.request.urlopen(req)
+                data = ujson.loads(url.read().decode())
+                self.nextUrl = data['next']
+                return data['items']
+            except (urllib.error.HTTPError):
+                # self.finalDf = pd.concat(self.dfList)
+                # print('files collected')
+                # self.finalDf.to_csv(str(self.filename), index=False)
+                print('HTTP error')
+
         except ValueError as e:
             extUrl = self.baseUrl + extUrl
 
@@ -101,35 +122,84 @@ class jsonScraper:
     def converter(self, myUrl):
         extJson = self.pageLoad(myUrl)
         newJson = []
-        self.counter = 0
-        for i in extJson:
-            if 'data' in i.keys():
-                data = flattener.splitObj(i['data'])
-                if data[0] is not None:
-                    data = data[0]
-                    self.counter = 0
-                else:
-                    self.counter += 1
-                    if data[2] is not None and self.counter < 4:
-                        data = flattener.splitObj(data[2][0])
-                        if data[0] is not None:
-                            data = data[0]
-                        else:
-                            data = flattener.splitObj(data[2][0])
-                            data = data[0]
-                            self.counter = 0
+        # counter = 0
+        if extJson is not None:
+            for i in extJson:
+                # print(i.keys())
+                if 'data' in i.keys():
+                    data = flattener.splitObj(i['data'])
+                    if data[0] is not None and data[2] is None:
+                        data = data[0]
+                    elif data[0] is not None and data[2] is not None:
+                        data_plus = flattener.splitObj(data[2][0], prefix=data[1])
 
-                i.pop('data', None)
-                try:
-                    j = {**i, **data}
-                    newJson.append(j)
-                except:
-                    print(data)
-                    # print(data)
-                    continue
+                        data = data[0]
+                        if data_plus[0] is not None:
+                            data = {**data, **data_plus[0]}
+                        # counter = 0
+                    else:
+                        #we go down another level
+                        data = flattener.splitObj(data[2][0], prefix=data[1])
 
-        apiDF = pd.DataFrame(newJson)
-        return apiDF
+                        if data[0] is not None and data[2] is None:
+                            data = data[0]
+                        elif data[0] is not None and data[2] is not None:
+                            data_plus = flattener.splitObj(data[2][0], prefix=data[1])
+
+                            data = data[0]
+                            if data_plus[0] is not None:
+                                data = {**data, **data_plus[0]}
+                            else:
+                                data = flattener.splitObj(data[2][0], prefix=data[1])
+
+                                if data[0] is not None and data[2] is None:
+                                    data = data[0]
+                                elif data[0] is not None and data[2] is not None:
+                                    data_plus = flattener.splitObj(data[2][0], prefix=data[1])
+
+                                    data = data[0]
+                                    if data_plus[0] is not None:
+                                        data = {**data, **data_plus[0]}
+
+                    i.pop('data', None)
+                    try:
+                        j = {**i, **data}
+                        newJson.append(j)
+                    except TypeError:
+                        data = flattener.splitObj(data[2][0], prefix=data[1])
+
+                        if data[0] is not None and data[2] is None:
+                            data = data[0]
+                        elif data[0] is not None and data[2] is not None:
+                            data_plus = flattener.splitObj(data[2][0], prefix=data[1])
+
+                            data = data[0]
+                            if data_plus[0] is not None:
+                                data = {**data, **data_plus[0]}
+                            else:
+                                data = flattener.splitObj(data[2][0], prefix=data[1])
+
+                                if data[0] is not None and data[2] is None:
+                                    data = data[0]
+                                elif data[0] is not None and data[2] is not None:
+                                    data_plus = flattener.splitObj(data[2][0], prefix=data[1])
+
+                                    data = data[0]
+                                    if data_plus[0] is not None:
+                                        data = {**data, **data_plus[0]}
+
+                                try:
+                                    j = {**i, **data}
+                                    newJson.append(j)
+                                except TypeError:
+                                    print(i, data)
+                                    continue
+
+            apiDF = pd.DataFrame(newJson)
+            return apiDF
+        else:
+            apiDF = pd.DataFrame()
+            return apiDF
 
 
 def main():

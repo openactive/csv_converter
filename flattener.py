@@ -27,10 +27,10 @@ def flatten (data, prefix = None):
             print(e)
 
 
-def splitObj (obj, prefix = None):
+def splitObj(obj, prefix=None):
 
     # copy the object, optionally add the prefix before each key
-    new = obj.copy() if prefix is None or prefix=="NotFlat" else {'{}_{}'.format(prefix, k): v for k, v in obj.items() }
+    new = obj.copy() if prefix is None or prefix == "NotFlat" else {'{}_{}'.format(prefix, k): v for k, v in obj.items()}
 
     cL = 0
     cD = 0
@@ -45,7 +45,7 @@ def splitObj (obj, prefix = None):
     for k, v in new.items():
         # list of subobjects
         if isinstance(v, list):
-            if (cD+cL) <=1:
+            if (cD+cL) <= 1:
                 try:
                     type(v[0])
                 except IndexError:
@@ -60,7 +60,7 @@ def splitObj (obj, prefix = None):
                 else:
                     # custLog.logger.info("")
                     print('wrong')
-            elif (cD+cL) >1:
+            elif (cD+cL) > 1:
 
                 try:
                     type(v[0])
